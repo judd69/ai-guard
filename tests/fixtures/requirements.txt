@@ -1,0 +1,6 @@
+# Deliberately risky dependency list for testing
+requests==2.31.0
+requets==2.31.0
+numpy
+djang>=4.0
+flask
