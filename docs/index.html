@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIGuard — Audit AI-generated code before you ship it</title>
+<meta name="description" content="AIGuard is a fast, offline, zero-dependency CLI that audits AI-generated Python code for hallucinated imports, leaked secrets, dangerous calls and typosquatted dependencies.">
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#10161d; --panel2:#131b24; --line:#1f2a36;
+    --text:#e8eef4; --muted:#93a4b3; --accent:#3fb96f; --accent2:#57c7ff;
+    --crit:#ff5f57; --high:#ff9f43; --med:#ffd166; --low:#7d8fa3;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6}
+  a{color:var(--accent2);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 24px}
+  /* nav */
+  nav{display:flex;justify-content:space-between;align-items:center;padding:20px 0;border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:19px;color:var(--text)}
+  .brand svg{flex:none}
+  nav .links a{color:var(--muted);margin-left:26px;font-size:15px}
+  nav .links a:hover{color:var(--text);text-decoration:none}
+  .gh-btn{background:#1c2733;border:1px solid var(--line);color:var(--text)!important;padding:8px 16px;border-radius:8px;font-weight:600}
+  .gh-btn:hover{border-color:var(--accent)}
+  /* hero */
+  .hero{padding:76px 0 30px;text-align:center}
+  .hero h1{font-size:52px;line-height:1.12;letter-spacing:-1px;font-weight:800}
+  .hero h1 .grad{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p.lede{color:var(--muted);font-size:20px;max-width:680px;margin:22px auto 34px}
+  .cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+  .btn{padding:13px 26px;border-radius:9px;font-weight:600;font-size:16px;display:inline-block}
+  .btn:hover{text-decoration:none}
+  .btn-primary{background:var(--accent);color:#06130b}
+  .btn-primary:hover{background:#4ccb7d}
+  .btn-ghost{border:1px solid var(--line);color:var(--text);background:var(--panel)}
+  .stats{display:flex;gap:0;justify-content:center;margin:46px auto 10px;max-width:760px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel)}
+  .stat{flex:1;padding:18px 8px;text-align:center;border-right:1px solid var(--line)}
+  .stat:last-child{border-right:none}
+  .stat b{display:block;font-size:24px;color:var(--text)}
+  .stat span{color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.6px}
+  /* terminal */
+  .terminal{background:#0d1319;border:1px solid var(--line);border-radius:12px;margin:44px auto;max-width:860px;overflow:hidden;text-align:left;box-shadow:0 24px 60px rgba(0,0,0,.45)}
+  .terminal .bar{display:flex;gap:8px;align-items:center;padding:12px 16px;background:var(--panel2);border-bottom:1px solid var(--line)}
+  .dot{width:12px;height:12px;border-radius:50%}
+  .terminal .bar span{color:var(--muted);font-size:13px;margin-left:8px;font-family:var(--mono)}
+  .terminal pre{padding:20px 22px;font-family:var(--mono);font-size:13px;line-height:1.65;overflow-x:auto;color:#c9d6e2;white-space:pre}
+  .t-cmd{color:#fff}.t-dim{color:#5f7285}.t-crit{color:var(--crit)}.t-high{color:var(--high)}.t-med{color:var(--med)}.t-low{color:var(--low)}.t-ok{color:var(--accent)}
+  /* sections */
+  section{padding:52px 0}
+  h2{font-size:30px;letter-spacing:-.5px;margin-bottom:10px;text-align:center}
+  .sub{color:var(--muted);text-align:center;max-width:620px;margin:0 auto 38px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px}
+  .card h3{font-size:17px;font-family:var(--mono);margin-bottom:8px}
+  .card p{color:var(--muted);font-size:14.5px}
+  .badge{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 9px;border-radius:20px;margin-bottom:12px}
+  .b-crit{background:rgba(255,95,87,.14);color:var(--crit)}
+  .b-high{background:rgba(255,159,67,.14);color:var(--high)}
+  .b-med{background:rgba(255,209,102,.13);color:var(--med)}
+  .b-low{background:rgba(125,143,163,.16);color:var(--low)}
+  .codeblock{background:#0d1319;border:1px solid var(--line);border-radius:12px;padding:20px 22px;font-family:var(--mono);font-size:13.5px;line-height:1.7;overflow-x:auto;white-space:pre;color:#c9d6e2;max-width:860px;margin:0 auto}
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start}
+  @media(max-width:760px){.split{grid-template-columns:1fr}.hero h1{font-size:38px}}
+  .split h3{font-size:19px;margin-bottom:12px}
+  .note{color:var(--muted);font-size:14.5px}
+  .note li{margin:0 0 10px 18px}
+  footer{border-top:1px solid var(--line);padding:34px 0 44px;text-align:center;color:var(--muted);font-size:14.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav>
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2l8 3v6c0 5-3.5 9.4-8 11-4.5-1.6-8-6-8-11V5l8-3z" fill="#3fb96f" opacity=".18"/><path d="M12 2l8 3v6c0 5-3.5 9.4-8 11-4.5-1.6-8-6-8-11V5l8-3z" stroke="#3fb96f" stroke-width="1.6"/><path d="M8.5 12.2l2.4 2.4 4.6-4.9" stroke="#3fb96f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      AIGuard
+    </div>
+    <div class="links">
+      <a href="#checks">Checks</a>
+      <a href="#install">Install</a>
+      <a href="#ci">CI</a>
+      <a class="gh-btn" href="https://github.com/judd69/ai-guard">GitHub ↗</a>
+    </div>
+  </nav>
+
+  <div class="hero">
+    <h1>Ship AI-written code<br><span class="grad">you actually understand.</span></h1>
+    <p class="lede">AI assistants write a lot of code now — and teams merge it without ever fully reading it. AIGuard is a five-second sanity check that runs before the PR does: no network, no dependencies, no excuses.</p>
+    <div class="cta">
+      <a class="btn btn-primary" href="https://github.com/judd69/ai-guard">View on GitHub</a>
+      <a class="btn btn-ghost" href="#install">Get started</a>
+    </div>
+    <div class="stats">
+      <div class="stat"><b>7</b><span>checks</span></div>
+      <div class="stat"><b>0</b><span>dependencies</span></div>
+      <div class="stat"><b>18</b><span>tests passing</span></div>
+      <div class="stat"><b>100%</b><span>offline</span></div>
+    </div>
+  </div>
+
+  <div class="terminal">
+    <div class="bar">
+      <div class="dot" style="background:#ff5f57"></div>
+      <div class="dot" style="background:#febc2e"></div>
+      <div class="dot" style="background:#28c840"></div>
+      <span>terminal — aiguard scan</span>
+    </div>
+    <pre><span class="t-cmd">$ aiguard scan ./src</span>
+
+<span class="t-high">[high]     hallucinated-imports</span>  app.py:3
+           import 'fastjson' cannot be resolved — it may be a hallucinated package.
+
+<span class="t-crit">[critical] secrets</span>  app.py:8
+           possible OpenAI-style API key committed in source — rotate it and
+           move it to an environment variable or secret store.
+
+<span class="t-crit">[critical] dangerous-calls</span>  app.py:15
+           eval() called with a non-literal argument — classic code-injection vector.
+
+<span class="t-med">[medium]   network-safety</span>  app.py:23
+           requests.get() without timeout= can hang forever.
+
+<span class="t-dim">Summary: 16 finding(s): low=4, medium=6, high=2, critical=4</span>
+<span class="t-crit">exit code 2 — CI fails on high+</span></pre>
+  </div>
+
+  <section id="checks">
+    <h2>What it catches</h2>
+    <p class="sub">Seven AST- and pattern-based checks aimed squarely at the shape of careless AI output — the dangerous calls, the leaked keys, the imports that don't exist.</p>
+    <div class="grid">
+      <div class="card"><span class="badge b-high">high</span><h3>hallucinated-imports</h3><p>Imports your interpreter can't resolve — like <code>import fastjson</code> — the classic AI confabulation, with a hint on what to do about it.</p></div>
+      <div class="card"><span class="badge b-crit">critical</span><h3>dangerous-calls</h3><p><code>eval</code>/<code>exec</code> on non-literals, <code>os.system</code>, <code>shell=True</code>, <code>pickle</code> deserialization, unsafe <code>yaml.load()</code> — the stuff that becomes an incident.</p></div>
+      <div class="card"><span class="badge b-crit">critical</span><h3>secrets</h3><p>AWS keys, GitHub tokens, OpenAI-style keys and hardcoded passwords. Placeholders are skipped, and findings are redacted in the report.</p></div>
+      <div class="card"><span class="badge b-med">medium</span><h3>weak-error-handling</h3><p>Bare <code>except:</code> blocks and swallowed exceptions that hide failures until production explains them to you.</p></div>
+      <div class="card"><span class="badge b-med">medium</span><h3>network-safety</h3><p>HTTP calls with no timeout, <code>verify=False</code> TLS bypasses, and unverified SSL contexts.</p></div>
+      <div class="card"><span class="badge b-med">medium</span><h3>risky-deps</h3><p>Typosquatted packages in your requirements — <code>requets</code> instead of <code>requests</code> — plus unpinned dependencies.</p></div>
+      <div class="card"><span class="badge b-low">low</span><h3>ai-tells</h3><p>Leftover "rest of the code goes here" placeholder comments and pasted mega-lines that signal nobody finished the job.</p></div>
+      <div class="card"><span class="badge b-high">ci-ready</span><h3>built for pipelines</h3><p>JSON output, severity filters, and exit codes designed so a CI job can fail the build exactly when it should.</p></div>
+    </div>
+  </section>
+
+  <section id="install">
+    <h2>Install &amp; use</h2>
+    <p class="sub">Python 3.9+ and nothing else. AIGuard has zero third-party dependencies — there's nothing to audit in the auditor.</p>
+    <div class="codeblock"><span class="t-dim"># install</span>
+pip install .
+<span class="t-dim"># or, isolated:</span>
+pipx install .
+
+<span class="t-dim"># scan a directory (recursive)</span>
+aiguard scan ./src
+
+<span class="t-dim"># scan one file, machine-readable JSON</span>
+aiguard scan app.py --json
+
+<span class="t-dim"># only medium+, and fail CI on high+</span>
+aiguard scan ./src --min-severity medium --fail-on high</div>
+  </section>
+
+  <section id="ci">
+    <div class="split">
+      <div>
+        <h3>Drop it into CI</h3>
+        <p class="note">Exit codes do the talking: <code>0</code> = pass, <code>2</code> = findings at or above <code>--fail-on</code> (default <code>high</code>), <code>1</code> = usage error. One workflow file and every PR gets audited.</p>
+      </div>
+      <div class="codeblock" style="margin:0"><span class="t-dim"># .github/workflows/aiguard.yml</span>
+name: AIGuard
+on: [push, pull_request]
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install .
+      - run: aiguard scan . --fail-on high</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Honest limitations</h2>
+    <p class="sub">AIGuard is a heuristic sanity check, not a proof of safety.</p>
+    <div style="max-width:680px;margin:0 auto">
+      <ul class="note">
+        <li><b>Python only</b> — it parses the Python AST, so other languages are out of scope.</li>
+        <li><b>Heuristics miss things</b> — exotic secret formats can slip by, and the typosquat list covers ~40 popular packages.</li>
+        <li><b>Run it in your venv</b> — import resolution is only as accurate as the environment you scan in.</li>
+        <li><b>It won't catch logic bugs.</b> It catches the shape of careless AI output before that output ships.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    <p>Built by <a href="https://github.com/judd69">Jude (judd69)</a> · MIT License · <a href="https://github.com/judd69/ai-guard">github.com/judd69/ai-guard</a></p>
+    <p style="margin-top:6px">Day 1 of shipping one project every day.</p>
+  </footer>
+
+</div>
+</body>
+</html>
